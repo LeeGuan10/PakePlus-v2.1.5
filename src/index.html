@@ -1,32 +1,3262 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="stylesheet" href="styles.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus App</title>
-        <script type="module" src="/main.js" defer></script>
-    </head>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>班级实时积分系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #6a5af9;
+            --secondary-color: #d66efd;
+            --accent-color: #ff6b8b;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-color: #f8f9fa;
+            --dark-color: #2c3e50;
+            --gray-color: #95a5a6;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --shadow-color: rgba(0, 0, 0, 0.08);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            color: var(--dark-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        
+        .container {
+            display: flex;
+            min-height: calc(100vh - 20px);
+            max-width: 1800px;
+            margin: 0 auto;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px var(--shadow-color);
+        }
+        
+        /* 可折叠菜单栏 */
+        .sidebar {
+            width: 60px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 20px 0;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar.expanded {
+            width: 220px;
+        }
+        
+        .sidebar-toggle {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .sidebar-toggle i {
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar.expanded .sidebar-toggle i {
+            transform: rotate(180deg);
+        }
+        
+        .sidebar-header {
+            text-align: center;
+            padding: 0 15px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;
+            overflow: hidden;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .sidebar.expanded .sidebar-header {
+            opacity: 1;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            color: white;
+        }
+        
+        .sidebar-header p {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .menu-item {
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 4px solid transparent;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        
+        .menu-item:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-left-color: white;
+        }
+        
+        .menu-item.active {
+            background-color: rgba(255, 255, 255, 0.25);
+            border-left-color: white;
+        }
+        
+        .menu-item i {
+            width: 24px;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+        
+        .menu-item span {
+            font-size: 1rem;
+            margin-left: 15px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .sidebar.expanded .menu-item span {
+            opacity: 1;
+        }
+        
+        /* 主要内容区域 */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: var(--light-color);
+        }
+        
+        /* 顶部栏 */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .page-title {
+            font-size: 1.8rem;
+            color: var(--primary-color);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .history-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* 模块通用样式 */
+        .module {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 20px var(--shadow-color);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .module.active {
+            display: block;
+        }
+        
+        .module-title {
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(106, 90, 249, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .module-title i {
+            margin-right: 10px;
+        }
+        
+        .module-title .add-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .module-title .add-btn:hover {
+            background: var(--secondary-color);
+            transform: scale(1.1);
+        }
+        
+        /* 按钮通用样式 */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(106, 90, 249, 0.3);
+        }
+        
+        .btn-secondary {
+            background-color: rgba(106, 90, 249, 0.1);
+            color: var(--primary-color);
+        }
+        
+        .btn-secondary:hover {
+            background-color: rgba(106, 90, 249, 0.2);
+        }
+        
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+        
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background-color: #d68910;
+        }
+        
+        .btn i {
+            margin-right: 8px;
+        }
+        
+        .btn-sm {
+            padding: 8px 15px;
+            font-size: 0.85rem;
+        }
+        
+        .btn-xs {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+        
+        /* 模块1：班级管理 */
+        .class-management {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .class-management {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .class-form-container {
+            background-color: rgba(106, 90, 249, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px dashed var(--primary-color);
+            display: none;
+        }
+        
+        .class-form-container.show {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark-color);
+            font-size: 0.9rem;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid rgba(106, 90, 249, 0.2);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: border-color 0.3s;
+            background-color: white;
+        }
+        
+        .form-control:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(106, 90, 249, 0.1);
+        }
+        
+        .class-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .class-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .class-item:hover {
+            background-color: rgba(106, 90, 249, 0.05);
+        }
+        
+        .class-item:last-child {
+            border-bottom: none;
+        }
+        
+        .class-item.active {
+            background-color: rgba(106, 90, 249, 0.1);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .class-info h4 {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: var(--dark-color);
+        }
+        
+        .class-info p {
+            font-size: 0.85rem;
+            color: var(--gray-color);
+        }
+        
+        .class-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        /* 模块2：学生积分管理 */
+        .student-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            align-items: center;
+        }
+        
+        .student-table-container {
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        /* 固定表头 */
+        .student-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        
+        .student-table thead {
+            position: sticky;
+            top: 0;
+            background-color: rgba(106, 90, 249, 0.1);
+            z-index: 10;
+        }
+        
+        .student-table th {
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--dark-color);
+            border-bottom: 2px solid rgba(106, 90, 249, 0.2);
+            font-size: 0.9rem;
+        }
+        
+        .student-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .student-table tbody tr {
+            transition: all 0.3s;
+        }
+        
+        .student-table tbody tr:hover {
+            background-color: rgba(106, 90, 249, 0.05);
+        }
+        
+        /* 排名样式 */
+        .rank-1 {
+            background-color: rgba(255, 215, 0, 0.1);
+        }
+        
+        .rank-2 {
+            background-color: rgba(192, 192, 192, 0.1);
+        }
+        
+        .rank-3 {
+            background-color: rgba(205, 127, 50, 0.1);
+        }
+        
+        .rank-4-10 {
+            background-color: rgba(106, 90, 249, 0.03);
+        }
+        
+        .rank-1 td,
+        .rank-2 td,
+        .rank-3 td {
+            font-weight: bold;
+        }
+        
+        /* 奖牌样式 */
+        .medal {
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 22px;
+            margin-right: 8px;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        
+        .gold {
+            background-color: #ffd700;
+            color: #8b6b00;
+        }
+        
+        .silver {
+            background-color: #c0c0c0;
+            color: #5a5a5a;
+        }
+        
+        .bronze {
+            background-color: #cd7f32;
+            color: white;
+        }
+        
+        /* 可编辑单元格 */
+        .editable-cell {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .editable-cell:hover {
+            background-color: rgba(106, 90, 249, 0.1);
+        }
+        
+        .editable-cell input {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+        }
+        
+        /* 分值单元格样式 */
+        .score-cell {
+            font-weight: bold;
+            color: var(--dark-color);
+            cursor: pointer;
+        }
+        
+        .positive-score {
+            color: var(--success-color);
+        }
+        
+        .negative-score {
+            color: var(--danger-color);
+        }
+        
+        /* 行内操作按钮 */
+        .row-actions {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 5px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .student-table tr:hover .row-actions {
+            opacity: 1;
+        }
+        
+        .row-action {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            transition: all 0.3s;
+        }
+        
+        .row-action:hover {
+            transform: scale(1.1);
+        }
+        
+        .add-action {
+            background-color: var(--success-color);
+        }
+        
+        .subtract-action {
+            background-color: var(--danger-color);
+        }
+        
+        /* 模块3：统计模块 */
+        .stats-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .date-range {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+        
+        .stats-box {
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+        }
+        
+        .stats-box h4 {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            color: var(--dark-color);
+            font-size: 1.1rem;
+        }
+        
+        .stats-box h4 i {
+            margin-right: 10px;
+        }
+        
+        .group-stats {
+            background: linear-gradient(135deg, rgba(106, 90, 249, 0.1) 0%, rgba(214, 110, 253, 0.1) 100%);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .positive-stats {
+            background: linear-gradient(135deg, rgba(46, 204, 113, 0.1) 0%, rgba(39, 174, 96, 0.1) 100%);
+            border-left: 4px solid var(--success-color);
+        }
+        
+        .negative-stats {
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.1) 0%, rgba(192, 57, 43, 0.1) 100%);
+            border-left: 4px solid var(--danger-color);
+        }
+        
+        .stat-item {
+            padding: 10px;
+            border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .stat-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .stat-name {
+            font-weight: 600;
+            margin-bottom: 3px;
+            flex: 1;
+            font-size: 0.9rem;
+        }
+        
+        .stat-details {
+            font-size: 0.85rem;
+            color: var(--gray-color);
+        }
+        
+        /* 奖杯样式 */
+        .trophy {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .trophy-gold {
+            color: #ffd700;
+        }
+        
+        .trophy-silver {
+            color: #c0c0c0;
+        }
+        
+        .trophy-bronze {
+            color: #cd7f32;
+        }
+        
+        /* 模块4：历史记录 */
+        .history-controls {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .history-table-container {
+            overflow-x: auto;
+            max-height: 350px;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+        
+        .history-table th {
+            position: sticky;
+            top: 0;
+            background-color: rgba(106, 90, 249, 0.1);
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--dark-color);
+            border-bottom: 2px solid rgba(106, 90, 249, 0.2);
+            font-size: 0.9rem;
+        }
+        
+        .history-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            font-size: 0.9rem;
+        }
+        
+        .history-positive {
+            background-color: rgba(46, 204, 113, 0.05);
+        }
+        
+        .history-negative {
+            background-color: rgba(231, 76, 60, 0.05);
+        }
+        
+        /* 模块5：系统备份 */
+        .backup-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .backup-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px var(--shadow-color);
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .backup-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px var(--shadow-color);
+        }
+        
+        .backup-card.backup {
+            border-color: var(--success-color);
+        }
+        
+        .backup-card.restore {
+            border-color: var(--primary-color);
+        }
+        
+        .backup-card.reset {
+            border-color: var(--danger-color);
+        }
+        
+        .backup-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .backup-card.backup .backup-icon {
+            color: var(--success-color);
+        }
+        
+        .backup-card.restore .backup-icon {
+            color: var(--primary-color);
+        }
+        
+        .backup-card.reset .backup-icon {
+            color: var(--danger-color);
+        }
+        
+        .backup-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--dark-color);
+        }
+        
+        .backup-card p {
+            color: var(--gray-color);
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+            animation: modalFadeIn 0.3s ease;
+        }
+        
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .modal-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--gray-color);
+            transition: color 0.3s;
+        }
+        
+        .close-modal:hover {
+            color: var(--danger-color);
+        }
+        
+        .score-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .score-option {
+            padding: 15px;
+            text-align: center;
+            border: 2px solid rgba(106, 90, 249, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+        
+        .score-option:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+        
+        .positive-option {
+            color: var(--success-color);
+        }
+        
+        .negative-option {
+            color: var(--danger-color);
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 15px;
+        }
+        
+        /* 批量操作样式 */
+        .batch-modal-content {
+            max-width: 600px;
+        }
+        
+        .batch-actions {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .batch-action {
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .batch-action i {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .batch-add {
+            background-color: rgba(46, 204, 113, 0.1);
+            border: 2px solid var(--success-color);
+            color: var(--success-color);
+        }
+        
+        .batch-subtract {
+            background-color: rgba(231, 76, 60, 0.1);
+            border: 2px solid var(--danger-color);
+            color: var(--danger-color);
+        }
+        
+        .batch-delete {
+            background-color: rgba(243, 156, 18, 0.1);
+            border: 2px solid var(--warning-color);
+            color: var(--warning-color);
+        }
+        
+        .batch-action:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px var(--shadow-color);
+        }
+        
+        .batch-selection {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: rgba(106, 90, 249, 0.05);
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .batch-selection-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .select-all {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .select-all input {
+            margin-right: 8px;
+        }
+        
+        .batch-student {
+            padding: 8px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+        }
+        
+        .batch-student:last-child {
+            border-bottom: none;
+        }
+        
+        .batch-student input {
+            margin-right: 10px;
+        }
+        
+        /* 添加学生模态框 */
+        .add-student-modal-content {
+            max-width: 500px;
+        }
+        
+        .add-student-form {
+            margin-top: 15px;
+        }
+        
+        .import-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .import-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .import-header i {
+            margin-right: 10px;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+        
+        .file-upload-area {
+            border: 2px dashed var(--primary-color);
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background-color: rgba(106, 90, 249, 0.05);
+        }
+        
+        .file-upload-area:hover {
+            background-color: rgba(106, 90, 249, 0.1);
+            border-color: var(--secondary-color);
+        }
+        
+        .file-upload-area i {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        
+        .file-upload-area p {
+            margin-bottom: 10px;
+            color: var(--dark-color);
+        }
+        
+        .file-upload-area small {
+            color: var(--gray-color);
+            font-size: 0.85rem;
+        }
+        
+        .file-name {
+            margin-top: 10px;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .import-preview {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            display: none;
+        }
+        
+        .import-preview table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .import-preview th {
+            background-color: rgba(106, 90, 249, 0.1);
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .import-preview td {
+            padding: 8px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .import-preview tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .import-instructions {
+            background-color: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid var(--warning-color);
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .import-instructions h4 {
+            color: var(--warning-color);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .import-instructions h4 i {
+            margin-right: 10px;
+        }
+        
+        .import-instructions ul {
+            padding-left: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .import-instructions li {
+            margin-bottom: 5px;
+        }
+        
+        .download-template {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 10px;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+        
+        .download-template:hover {
+            color: var(--secondary-color);
+        }
+        
+        .download-template i {
+            margin-right: 8px;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 992px) {
+            .container {
+                flex-direction: column;
+                min-height: auto;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 60px;
+                flex-direction: row;
+                padding: 0;
+                align-items: center;
+            }
+            
+            .sidebar.expanded {
+                height: auto;
+                flex-direction: column;
+                padding: 20px 0;
+            }
+            
+            .sidebar-toggle {
+                margin-bottom: 0;
+                margin-right: 20px;
+            }
+            
+            .sidebar.expanded .sidebar-toggle {
+                margin-bottom: 20px;
+                margin-right: 0;
+            }
+            
+            .menu-items {
+                display: flex;
+                flex-direction: row;
+                width: 100%;
+                justify-content: space-around;
+            }
+            
+            .sidebar.expanded .menu-items {
+                flex-direction: column;
+            }
+            
+            .menu-item {
+                justify-content: center;
+                border-left: none;
+                border-bottom: 4px solid transparent;
+            }
+            
+            .menu-item:hover, .menu-item.active {
+                border-left: none;
+                border-bottom-color: white;
+            }
+            
+            .menu-item i {
+                margin-right: 0;
+            }
+            
+            .sidebar.expanded .menu-item {
+                justify-content: flex-start;
+                border-bottom: none;
+                border-left: 4px solid transparent;
+            }
+            
+            .sidebar.expanded .menu-item:hover, 
+            .sidebar.expanded .menu-item.active {
+                border-bottom: none;
+                border-left-color: white;
+            }
+            
+            .sidebar.expanded .menu-item i {
+                margin-right: 0;
+            }
+            
+            .menu-item span {
+                display: none;
+            }
+            
+            .sidebar.expanded .menu-item span {
+                display: inline-block;
+            }
+            
+            .sidebar-header {
+                display: none;
+            }
+            
+            .sidebar.expanded .sidebar-header {
+                display: block;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .page-title {
+                font-size: 1.5rem;
+            }
+            
+            .module {
+                padding: 15px;
+            }
+            
+            .class-management {
+                grid-template-columns: 1fr;
+            }
+            
+            .student-controls, .history-controls, .stats-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .backup-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .batch-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 可折叠菜单栏 -->
+        <div class="sidebar">
+            <div class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            
+            <div class="sidebar-header">
+                <h2>积分系统</h2>
+                <p>班级实时管理</p>
+            </div>
+            
+            <div class="menu-items">
+                <div class="menu-item" data-module="module2">
+                    <i class="fas fa-users"></i>
+                    <span>学生积分</span>
+                </div>
+                
+                <div class="menu-item" data-module="module3">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>数据统计</span>
+                </div>
+                
+                <div class="menu-item" data-module="module4">
+                    <i class="fas fa-history"></i>
+                    <span>历史记录</span>
+                </div>
+                
+                <div class="menu-item" data-module="module1">
+                    <i class="fas fa-school"></i>
+                    <span>班级管理</span>
+                </div>
+                
+                <div class="menu-item" data-module="module5">
+                    <i class="fas fa-database"></i>
+                    <span>系统备份</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主要内容区域 -->
+        <div class="main-content">
+            <!-- 顶部栏 -->
+            <div class="top-bar">
+                <div class="page-title">班级实时积分系统</div>
+                <div class="history-controls">
+                    <button id="undoBtn" class="btn btn-secondary">
+                        <i class="fas fa-undo"></i>
+                        后退
+                    </button>
+                    <button id="redoBtn" class="btn btn-secondary">
+                        <i class="fas fa-redo"></i>
+                        前进
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 模块1：班级管理 -->
+            <div id="module1" class="module">
+                <div class="module-title">
+                    <div>
+                        <i class="fas fa-school"></i>
+                        班级管理
+                    </div>
+                    <button class="add-btn" id="showClassForm">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <div class="class-management">
+                    <div class="class-form-container" id="classFormContainer">
+                        <div class="form-group">
+                            <label for="className">班级名称</label>
+                            <input type="text" id="className" class="form-control" placeholder="例如：三年级二班">
+                        </div>
+                        <div class="form-group">
+                            <label for="teacherName">班主任</label>
+                            <input type="text" id="teacherName" class="form-control" placeholder="请输入班主任姓名">
+                        </div>
+                        <button id="addClassBtn" class="btn btn-primary">
+                            <i class="fas fa-plus-circle"></i>
+                            添加班级
+                        </button>
+                    </div>
+                    <div class="class-list">
+                        <h4 style="margin-bottom: 10px; color: var(--primary-color);">班级列表</h4>
+                        <div id="classList">
+                            <!-- 班级列表将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 模块2：学生积分管理 -->
+            <div id="module2" class="module active">
+                <div class="module-title">
+                    <div>
+                        <i class="fas fa-users"></i>
+                        学生积分管理
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="addStudentBtn" class="btn btn-primary btn-sm">
+                            <i class="fas fa-user-plus"></i>
+                            添加学生
+                        </button>
+                        <button id="batchOperationBtn" class="btn btn-primary btn-sm">
+                            <i class="fas fa-tasks"></i>
+                            批量操作
+                        </button>
+                    </div>
+                </div>
+                <div class="student-controls">
+                    <button id="refreshRankingBtn" class="btn btn-success">
+                        <i class="fas fa-sync-alt"></i>
+                        刷新排名
+                    </button>
+                    <div style="flex-grow: 1;"></div>
+                    <div class="form-group" style="margin-bottom: 0; min-width: 200px;">
+                        <input type="text" id="searchStudent" class="form-control" placeholder="搜索学生...">
+                    </div>
+                </div>
+                <div class="student-table-container">
+                    <table class="student-table">
+                        <thead>
+                            <tr>
+                                <th width="5%">排名</th>
+                                <th width="25%">姓名</th>
+                                <th width="20%">小组</th>
+                                <th width="20%">分值</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTable">
+                            <!-- 学生表格数据将通过JavaScript动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 模块3：统计模块 -->
+            <div id="module3" class="module active">
+                <div class="module-title">
+                    <i class="fas fa-chart-bar"></i>
+                    数据统计
+                </div>
+                <div class="stats-controls">
+                    <div class="date-range">
+                        <label>考核周期：</label>
+                        <input type="date" id="startDate" class="form-control" style="width: 140px;">
+                        <span>至</span>
+                        <input type="date" id="endDate" class="form-control" style="width: 140px;">
+                    </div>
+                    <button id="updateStatsBtn" class="btn btn-primary">
+                        <i class="fas fa-filter"></i>
+                        更新统计
+                    </button>
+                </div>
+                <div class="stats-container">
+                    <div class="stats-box group-stats">
+                        <h4><i class="fas fa-trophy"></i> 小组排名 (前3名)</h4>
+                        <div id="groupStats">
+                            <!-- 小组排名将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    <div class="stats-box positive-stats">
+                        <h4><i class="fas fa-award"></i> 加分最多 (前5名)</h4>
+                        <div id="positiveStats">
+                            <!-- 加分统计将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    <div class="stats-box negative-stats">
+                        <h4><i class="fas fa-exclamation-triangle"></i> 扣分超过20分</h4>
+                        <div id="negativeStats">
+                            <!-- 扣分统计将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 模块4：历史记录 -->
+            <div id="module4" class="module active">
+                <div class="module-title">
+                    <i class="fas fa-history"></i>
+                    历史记录
+                </div>
+                <div class="history-controls">
+                    <button id="exportHistoryBtn" class="btn btn-success">
+                        <i class="fas fa-download"></i>
+                        导出历史记录
+                    </button>
+                    <div class="form-group" style="margin-bottom: 0; min-width: 150px;">
+                        <select id="historyFilter" class="form-control">
+                            <option value="all">全部记录</option>
+                            <option value="positive">加分记录</option>
+                            <option value="negative">扣分记录</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="history-table-container">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th width="20%">时间</th>
+                                <th width="15%">学生</th>
+                                <th width="15%">类型</th>
+                                <th width="15%">分值</th>
+                                <th width="35%">原因</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTable">
+                            <!-- 历史记录将通过JavaScript动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 模块5：系统备份 -->
+            <div id="module5" class="module">
+                <div class="module-title">
+                    <i class="fas fa-database"></i>
+                    系统备份与更新
+                </div>
+                <div class="backup-container">
+                    <div class="backup-card backup">
+                        <div class="backup-icon">
+                            <i class="fas fa-save"></i>
+                        </div>
+                        <h3>数据备份</h3>
+                        <p>将当前系统数据备份到本地文件，便于数据迁移和恢复</p>
+                        <button id="backupBtn" class="btn btn-success">
+                            <i class="fas fa-download"></i>
+                            备份数据
+                        </button>
+                    </div>
+                    
+                    <div class="backup-card restore">
+                        <div class="backup-icon">
+                            <i class="fas fa-file-import"></i>
+                        </div>
+                        <h3>恢复数据</h3>
+                        <p>从备份文件恢复系统数据，覆盖当前数据</p>
+                        <button id="restoreBtn" class="btn btn-warning">
+                            <i class="fas fa-upload"></i>
+                            恢复数据
+                        </button>
+                    </div>
+                    
+                    <div class="backup-card reset">
+                        <div class="backup-icon">
+                            <i class="fas fa-redo-alt"></i>
+                        </div>
+                        <h3>重置系统</h3>
+                        <p>清空所有数据，恢复系统到初始状态</p>
+                        <button id="resetBtn" class="btn btn-danger">
+                            <i class="fas fa-trash-alt"></i>
+                            重置系统
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 加分/扣分模态框 -->
+    <div id="scoreModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="scoreModalTitle">调整分数</div>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div id="scoreModalBody">
+                <!-- 模态框内容将通过JavaScript动态生成 -->
+            </div>
+            <div class="modal-footer">
+                <button id="cancelScoreBtn" class="btn btn-secondary">取消</button>
+                <button id="confirmScoreBtn" class="btn btn-primary">确认</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 批量操作模态框 -->
+    <div id="batchModal" class="modal">
+        <div class="modal-content batch-modal-content">
+            <div class="modal-header">
+                <div class="modal-title">批量操作</div>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>请选择要执行的操作：</p>
+                <div class="batch-actions">
+                    <div class="batch-action batch-add" data-action="add">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>批量加分</span>
+                    </div>
+                    <div class="batch-action batch-subtract" data-action="subtract">
+                        <i class="fas fa-minus-circle"></i>
+                        <span>批量扣分</span>
+                    </div>
+                    <div class="batch-action batch-delete" data-action="delete">
+                        <i class="fas fa-trash-alt"></i>
+                        <span>批量删除</span>
+                    </div>
+                </div>
+                
+                <div class="batch-selection">
+                    <div class="batch-selection-header">
+                        <div>选择学生：</div>
+                        <div class="select-all">
+                            <input type="checkbox" id="selectAllStudents">
+                            <label for="selectAllStudents">全选</label>
+                        </div>
+                    </div>
+                    <div id="batchStudentList">
+                        <!-- 批量操作学生列表将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelBatchBtn" class="btn btn-secondary">取消</button>
+                <button id="confirmBatchBtn" class="btn btn-primary">确认</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 添加学生模态框 -->
+    <div id="addStudentModal" class="modal">
+        <div class="modal-content add-student-modal-content">
+            <div class="modal-header">
+                <div class="modal-title">添加学生</div>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="add-student-form">
+                <div class="form-group">
+                    <label for="newStudentName">学生姓名</label>
+                    <input type="text" id="newStudentName" class="form-control" placeholder="请输入学生姓名">
+                </div>
+                <div class="form-group">
+                    <label for="newStudentGroup">小组名称</label>
+                    <input type="text" id="newStudentGroup" class="form-control" placeholder="请输入小组名称（如：第一组）">
+                </div>
+                
+                <div class="import-section">
+                    <div class="import-header">
+                        <i class="fas fa-file-excel"></i>
+                        <h4>从Excel文件导入学生</h4>
+                    </div>
+                    
+                    <div class="file-upload-area" id="fileUploadArea">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>点击此处选择Excel文件或拖拽文件到此处</p>
+                        <small>支持.xlsx和.xls格式文件</small>
+                        <div class="file-name" id="fileName">未选择文件</div>
+                    </div>
+                    
+                    <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display: none;">
+                    
+                    <div class="import-preview" id="importPreview">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>姓名</th>
+                                    <th>小组</th>
+                                    <th>初始积分</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewTableBody">
+                                <!-- 预览数据将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="import-instructions">
+                        <h4><i class="fas fa-info-circle"></i> 导入说明</h4>
+                        <p>Excel文件应包含以下列（按顺序）：</p>
+                        <ul>
+                            <li><strong>A列：学生姓名</strong>（必填）</li>
+                            <li><strong>B列：小组名称</strong>（必填）</li>
+                            <li><strong>C列：初始积分</strong>（可选，默认为0）</li>
+                        </ul>
+                        <p>请确保Excel文件的第一行是标题行，系统将从第二行开始读取数据。</p>
+                        <a href="#" id="downloadTemplate" class="download-template">
+                            <i class="fas fa-download"></i>
+                            下载Excel模板
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelAddStudentBtn" class="btn btn-secondary">取消</button>
+                <button id="confirmImportBtn" class="btn btn-success">
+                    <i class="fas fa-file-import"></i>
+                    导入学生
+                </button>
+                <button id="confirmAddStudentBtn" class="btn btn-primary">添加单个学生</button>
+            </div>
+        </div>
+    </div>
 
-    <body>
-        <main class="container">
-            <h1>Welcome to PakePlus</h1>
-            <form class="row" id="greet-form">
-                <input id="inputValue" placeholder="Enter a something..." />
-            </form>
-            <div class="resultBox">
-                <span>result: </span>
-                <span id="result"></span>
-            </div>
-            <div class="invokeBox">
-                <button id="openUrl">open_url_browser</button>
-                <button id="openUrlNew">open_url_new</button>
-                <button id="runCommand">run_command</button>
-                <button id="downloadFile">download_file</button>
-                <button id="getExeDir">get_exe_dir</button>
-                <button id="getEnvVar">get_env_var</button>
-                <button id="findPort">find_port</button>
-            </div>
-        </main>
-    </body>
+    <script>
+        // 全局变量
+        let currentClass = null;
+        let classes = [];
+        let students = [];
+        let history = [];
+        let undoStack = [];
+        let redoStack = [];
+        let selectedStudents = [];
+        let currentStudentId = null;
+        let isAddingScore = true; // true为加分，false为扣分
+        let importData = []; // 存储从Excel导入的数据
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            initEventListeners();
+            renderClassList();
+            updateDateInputs();
+            
+            // 默认显示模块2、3、4
+            showModule('module2');
+            showModule('module3');
+            showModule('module4');
+            
+            // 设置菜单项激活状态
+            document.querySelectorAll('.menu-item').forEach(item => {
+                if (item.getAttribute('data-module') === 'module2') {
+                    item.classList.add('active');
+                }
+            });
+            
+            // 如果没有班级，创建一个示例班级
+            if (classes.length === 0) {
+                createSampleData();
+            }
+        });
+        
+        // 初始化事件监听器
+        function initEventListeners() {
+            // 菜单折叠/展开
+            document.getElementById('sidebarToggle').addEventListener('click', function() {
+                document.querySelector('.sidebar').classList.toggle('expanded');
+                this.querySelector('i').classList.toggle('fa-chevron-right');
+                this.querySelector('i').classList.toggle('fa-chevron-left');
+            });
+            
+            // 菜单切换
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const moduleId = this.getAttribute('data-module');
+                    
+                    // 更新菜单活动状态
+                    document.querySelectorAll('.menu-item').forEach(i => {
+                        i.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    // 显示对应模块
+                    if (moduleId === 'module2' || moduleId === 'module3' || moduleId === 'module4') {
+                        // 这些模块可以同时显示
+                        showModule(moduleId);
+                    } else {
+                        // 其他模块单独显示
+                        hideAllModules();
+                        showModule(moduleId);
+                    }
+                });
+            });
+            
+            // 班级管理
+            document.getElementById('showClassForm').addEventListener('click', function() {
+                document.getElementById('classFormContainer').classList.toggle('show');
+            });
+            
+            document.getElementById('addClassBtn').addEventListener('click', addClass);
+            
+            // 学生管理
+            document.getElementById('addStudentBtn').addEventListener('click', showAddStudentModal);
+            document.getElementById('batchOperationBtn').addEventListener('click', showBatchModal);
+            document.getElementById('refreshRankingBtn').addEventListener('click', refreshRanking);
+            document.getElementById('searchStudent').addEventListener('input', filterStudents);
+            
+            // 统计模块
+            document.getElementById('updateStatsBtn').addEventListener('click', updateStats);
+            
+            // 历史记录
+            document.getElementById('exportHistoryBtn').addEventListener('click', exportHistory);
+            document.getElementById('historyFilter').addEventListener('change', filterHistory);
+            
+            // 操作按钮
+            document.getElementById('undoBtn').addEventListener('click', undo);
+            document.getElementById('redoBtn').addEventListener('click', redo);
+            document.getElementById('backupBtn').addEventListener('click', backupData);
+            document.getElementById('restoreBtn').addEventListener('click', restoreData);
+            document.getElementById('resetBtn').addEventListener('click', resetSystem);
+            
+            // 模态框
+            document.querySelectorAll('.close-modal').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.getElementById('scoreModal').style.display = 'none';
+                    document.getElementById('batchModal').style.display = 'none';
+                    document.getElementById('addStudentModal').style.display = 'none';
+                });
+            });
+            
+            document.getElementById('cancelScoreBtn').addEventListener('click', function() {
+                document.getElementById('scoreModal').style.display = 'none';
+            });
+            
+            document.getElementById('confirmScoreBtn').addEventListener('click', confirmScoreChange);
+            
+            document.getElementById('cancelBatchBtn').addEventListener('click', function() {
+                document.getElementById('batchModal').style.display = 'none';
+                selectedStudents = [];
+                document.getElementById('selectAllStudents').checked = false;
+            });
+            
+            document.getElementById('confirmBatchBtn').addEventListener('click', confirmBatchOperation);
+            
+            // 添加学生模态框
+            document.getElementById('cancelAddStudentBtn').addEventListener('click', function() {
+                document.getElementById('addStudentModal').style.display = 'none';
+                resetAddStudentForm();
+            });
+            
+            document.getElementById('confirmAddStudentBtn').addEventListener('click', confirmAddStudent);
+            document.getElementById('confirmImportBtn').addEventListener('click', confirmImportStudents);
+            
+            // Excel文件导入
+            document.getElementById('fileUploadArea').addEventListener('click', function() {
+                document.getElementById('excelFileInput').click();
+            });
+            
+            document.getElementById('excelFileInput').addEventListener('change', handleFileSelect);
+            
+            // 拖拽上传
+            document.getElementById('fileUploadArea').addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.style.backgroundColor = 'rgba(106, 90, 249, 0.15)';
+                this.style.borderColor = 'var(--secondary-color)';
+            });
+            
+            document.getElementById('fileUploadArea').addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.style.backgroundColor = 'rgba(106, 90, 249, 0.05)';
+                this.style.borderColor = 'var(--primary-color)';
+            });
+            
+            document.getElementById('fileUploadArea').addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.style.backgroundColor = 'rgba(106, 90, 249, 0.05)';
+                this.style.borderColor = 'var(--primary-color)';
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const file = files[0];
+                    if (file.name.match(/\.(xlsx|xls)$/)) {
+                        document.getElementById('excelFileInput').files = files;
+                        handleFileSelect({ target: document.getElementById('excelFileInput') });
+                    } else {
+                        alert('请选择Excel文件（.xlsx或.xls格式）');
+                    }
+                }
+            });
+            
+            // 下载模板
+            document.getElementById('downloadTemplate').addEventListener('click', downloadTemplate);
+            
+            // 批量操作按钮
+            document.querySelectorAll('.batch-action').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const action = this.getAttribute('data-action');
+                    handleBatchAction(action);
+                });
+            });
+            
+            // 点击模态框外部关闭模态框
+            window.addEventListener('click', function(event) {
+                if (event.target.classList.contains('modal')) {
+                    event.target.style.display = 'none';
+                    selectedStudents = [];
+                    document.getElementById('selectAllStudents').checked = false;
+                    
+                    // 清除添加学生表单
+                    if (event.target.id === 'addStudentModal') {
+                        resetAddStudentForm();
+                    }
+                }
+            });
+            
+            // 监听storage事件以实现跨标签页同步
+            window.addEventListener('storage', function(event) {
+                if (event.key === 'classPointsData') {
+                    loadData();
+                    renderClassList();
+                }
+            });
+        }
+        
+        // 显示模块
+        function showModule(moduleId) {
+            document.getElementById(moduleId).classList.add('active');
+        }
+        
+        // 隐藏模块
+        function hideModule(moduleId) {
+            document.getElementById(moduleId).classList.remove('active');
+        }
+        
+        // 隐藏所有模块
+        function hideAllModules() {
+            document.querySelectorAll('.module').forEach(module => {
+                module.classList.remove('active');
+            });
+        }
+        
+        // 加载数据
+        function loadData() {
+            const savedData = localStorage.getItem('classPointsData');
+            if (savedData) {
+                try {
+                    const data = JSON.parse(savedData);
+                    classes = data.classes || [];
+                    students = data.students || [];
+                    history = data.history || [];
+                    undoStack = data.undoStack || [];
+                    redoStack = data.redoStack || [];
+                    
+                    // 设置当前班级为第一个班级
+                    if (classes.length > 0 && !currentClass) {
+                        currentClass = classes[0].id;
+                        renderStudentTable();
+                        renderHistoryTable();
+                        updateStats();
+                    }
+                } catch (e) {
+                    console.error('加载数据失败:', e);
+                    createSampleData();
+                }
+            }
+        }
+        
+        // 保存数据
+        function saveData() {
+            // 保存当前状态到撤销栈
+            const state = {
+                classes: JSON.parse(JSON.stringify(classes)),
+                students: JSON.parse(JSON.stringify(students)),
+                history: JSON.parse(JSON.stringify(history)),
+                currentClass: currentClass
+            };
+            
+            undoStack.push(state);
+            // 限制撤销栈大小（最多10步）
+            if (undoStack.length > 10) {
+                undoStack.shift();
+            }
+            
+            // 清空重做栈
+            redoStack = [];
+            
+            const data = {
+                classes,
+                students,
+                history,
+                undoStack,
+                redoStack
+            };
+            
+            localStorage.setItem('classPointsData', JSON.stringify(data));
+            
+            // 触发storage事件以实现跨标签页同步
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: 'classPointsData',
+                newValue: JSON.stringify(data)
+            }));
+        }
+        
+        // 创建示例数据
+        function createSampleData() {
+            // 创建示例班级
+            const sampleClass = {
+                id: Date.now().toString(),
+                name: '三年级二班',
+                teacher: '张老师',
+                createdAt: new Date().toISOString()
+            };
+            
+            classes = [sampleClass];
+            currentClass = sampleClass.id;
+            
+            // 创建示例学生
+            const sampleStudents = [
+                { id: '1', classId: sampleClass.id, name: '张三', group: '第一组', score: 150 },
+                { id: '2', classId: sampleClass.id, name: '李四', group: '第一组', score: 120 },
+                { id: '3', classId: sampleClass.id, name: '王五', group: '第二组', score: 180 },
+                { id: '4', classId: sampleClass.id, name: '赵六', group: '第二组', score: 90 },
+                { id: '5', classId: sampleClass.id, name: '钱七', group: '第三组', score: 200 },
+                { id: '6', classId: sampleClass.id, name: '孙八', group: '第三组', score: 110 },
+                { id: '7', classId: sampleClass.id, name: '周九', group: '第四组', score: 80 },
+                { id: '8', classId: sampleClass.id, name: '吴十', group: '第四组', score: 160 }
+            ];
+            
+            students = sampleStudents;
+            
+            // 创建示例历史记录
+            const sampleHistory = [
+                { id: '1', studentId: '5', studentName: '钱七', type: 'positive', score: 30, reason: '课堂表现优秀', timestamp: new Date(Date.now() - 86400000).toISOString() },
+                { id: '2', studentId: '3', studentName: '王五', type: 'positive', score: 20, reason: '作业完成出色', timestamp: new Date(Date.now() - 172800000).toISOString() },
+                { id: '3', studentId: '8', studentName: '吴十', type: 'negative', score: 10, reason: '迟到', timestamp: new Date(Date.now() - 259200000).toISOString() },
+                { id: '4', studentId: '4', studentName: '赵六', type: 'positive', score: 10, reason: '帮助同学', timestamp: new Date(Date.now() - 345600000).toISOString() },
+                { id: '5', studentId: '1', studentName: '张三', type: 'negative', score: 20, reason: '未交作业', timestamp: new Date(Date.now() - 432000000).toISOString() }
+            ];
+            
+            history = sampleHistory;
+            
+            saveData();
+            renderClassList();
+            renderStudentTable();
+            renderHistoryTable();
+            updateStats();
+        }
+        
+        // 渲染班级列表
+        function renderClassList() {
+            const classList = document.getElementById('classList');
+            classList.innerHTML = '';
+            
+            if (classes.length === 0) {
+                classList.innerHTML = '<div class="class-item"><div class="class-info"><p>暂无班级，请添加班级</p></div></div>';
+                return;
+            }
+            
+            classes.forEach(classItem => {
+                const classElement = document.createElement('div');
+                classElement.className = `class-item ${currentClass === classItem.id ? 'active' : ''}`;
+                
+                const studentCount = students.filter(s => s.classId === classItem.id).length;
+                
+                classElement.innerHTML = `
+                    <div class="class-info">
+                        <h4>${classItem.name}</h4>
+                        <p>班主任：${classItem.teacher} | 学生数：${studentCount}人</p>
+                    </div>
+                    <div class="class-actions">
+                        <button class="btn btn-secondary btn-xs select-class" data-id="${classItem.id}">选择</button>
+                        <button class="btn btn-danger btn-xs delete-class" data-id="${classItem.id}">删除</button>
+                    </div>
+                `;
+                
+                classList.appendChild(classElement);
+            });
+            
+            // 添加班级选择事件
+            document.querySelectorAll('.select-class').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    currentClass = this.getAttribute('data-id');
+                    renderClassList();
+                    renderStudentTable();
+                    renderHistoryTable();
+                    updateStats();
+                });
+            });
+            
+            // 添加班级删除事件
+            document.querySelectorAll('.delete-class').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const classId = this.getAttribute('data-id');
+                    deleteClass(classId);
+                });
+            });
+        }
+        
+        // 添加班级
+        function addClass() {
+            const className = document.getElementById('className').value.trim();
+            const teacherName = document.getElementById('teacherName').value.trim();
+            
+            if (!className) {
+                alert('请输入班级名称');
+                return;
+            }
+            
+            const newClass = {
+                id: Date.now().toString(),
+                name: className,
+                teacher: teacherName || '未知',
+                createdAt: new Date().toISOString()
+            };
+            
+            classes.push(newClass);
+            
+            // 清空表单
+            document.getElementById('className').value = '';
+            document.getElementById('teacherName').value = '';
+            
+            // 如果是第一个班级，设置为当前班级
+            if (classes.length === 1) {
+                currentClass = newClass.id;
+            }
+            
+            saveData();
+            renderClassList();
+            
+            // 隐藏表单
+            document.getElementById('classFormContainer').classList.remove('show');
+        }
+        
+        // 删除班级
+        function deleteClass(classId) {
+            if (!confirm('确定要删除这个班级吗？该班级的所有学生数据和历史记录也将被删除。')) {
+                return;
+            }
+            
+            // 删除班级
+            classes = classes.filter(c => c.id !== classId);
+            
+            // 删除该班级的所有学生
+            students = students.filter(s => s.classId !== classId);
+            
+            // 删除该班级的所有历史记录
+            history = history.filter(h => {
+                const student = students.find(s => s.id === h.studentId);
+                return student && student.classId !== classId;
+            });
+            
+            // 如果删除的是当前班级，选择第一个班级作为当前班级
+            if (currentClass === classId) {
+                currentClass = classes.length > 0 ? classes[0].id : null;
+            }
+            
+            saveData();
+            renderClassList();
+            renderStudentTable();
+            renderHistoryTable();
+            updateStats();
+        }
+        
+        // 渲染学生表格
+        function renderStudentTable() {
+            const studentTable = document.getElementById('studentTable');
+            studentTable.innerHTML = '';
+            
+            if (!currentClass) {
+                studentTable.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 40px;">请先选择或创建班级</td></tr>';
+                return;
+            }
+            
+            // 获取当前班级的学生
+            let classStudents = students.filter(s => s.classId === currentClass);
+            
+            // 按分数排序
+            classStudents.sort((a, b) => b.score - a.score);
+            
+            // 添加排名
+            classStudents = classStudents.map((student, index) => {
+                return {
+                    ...student,
+                    rank: index + 1
+                };
+            });
+            
+            if (classStudents.length === 0) {
+                studentTable.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 40px;">暂无学生，请添加学生</td></tr>';
+                return;
+            }
+            
+            classStudents.forEach(student => {
+                const row = document.createElement('tr');
+                
+                // 根据排名设置样式
+                let rankClass = '';
+                if (student.rank === 1) {
+                    rankClass = 'rank-1';
+                } else if (student.rank === 2) {
+                    rankClass = 'rank-2';
+                } else if (student.rank === 3) {
+                    rankClass = 'rank-3';
+                } else if (student.rank <= 10) {
+                    rankClass = 'rank-4-10';
+                }
+                
+                row.className = rankClass;
+                
+                // 奖牌标识
+                let medalHTML = '';
+                if (student.rank === 1) {
+                    medalHTML = '<span class="medal gold"><i class="fas fa-medal"></i></span>';
+                } else if (student.rank === 2) {
+                    medalHTML = '<span class="medal silver"><i class="fas fa-medal"></i></span>';
+                } else if (student.rank === 3) {
+                    medalHTML = '<span class="medal bronze"><i class="fas fa-medal"></i></span>';
+                }
+                
+                // 前十名字体加粗
+                const nameStyle = student.rank <= 10 ? 'font-weight: bold;' : '';
+                const scoreColor = student.score >= 0 ? 'positive-score' : 'negative-score';
+                
+                // 创建操作按钮
+                const rowActions = document.createElement('div');
+                rowActions.className = 'row-actions';
+                rowActions.innerHTML = `
+                    <button class="row-action add-action" data-id="${student.id}">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button class="row-action subtract-action" data-id="${student.id}">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                `;
+                
+                row.innerHTML = `
+                    <td>${medalHTML} ${student.rank}</td>
+                    <td class="editable-cell" data-id="${student.id}" data-field="name" style="${nameStyle}">
+                        ${student.name}
+                    </td>
+                    <td class="editable-cell" data-id="${student.id}" data-field="group" style="${nameStyle}">
+                        ${student.group}
+                    </td>
+                    <td class="score-cell ${scoreColor}" data-id="${student.id}" style="${nameStyle}; position: relative;">
+                        ${student.score}
+                    </td>
+                `;
+                
+                // 将操作按钮添加到分值单元格
+                const scoreCell = row.querySelector('.score-cell');
+                scoreCell.appendChild(rowActions);
+                
+                studentTable.appendChild(row);
+            });
+            
+            // 添加单元格双击编辑事件
+            document.querySelectorAll('.editable-cell').forEach(cell => {
+                cell.addEventListener('dblclick', function() {
+                    const studentId = this.getAttribute('data-id');
+                    const field = this.getAttribute('data-field');
+                    const currentValue = this.textContent.trim();
+                    
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = currentValue;
+                    input.className = 'form-control';
+                    input.style.width = '100%';
+                    input.style.padding = '5px';
+                    
+                    this.innerHTML = '';
+                    this.appendChild(input);
+                    input.focus();
+                    
+                    input.addEventListener('blur', function() {
+                        const newValue = this.value.trim();
+                        if (newValue && newValue !== currentValue) {
+                            updateStudentField(studentId, field, newValue);
+                        } else {
+                            renderStudentTable();
+                        }
+                    });
+                    
+                    input.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            this.blur();
+                        }
+                    });
+                });
+            });
+            
+            // 添加分数点击事件（显示加减分模态框）
+            document.querySelectorAll('.score-cell').forEach(cell => {
+                cell.addEventListener('click', function(e) {
+                    // 阻止点击操作按钮时触发分数调整
+                    if (e.target.classList.contains('row-action')) {
+                        return;
+                    }
+                    const studentId = this.getAttribute('data-id');
+                    showScoreModal(studentId, true);
+                });
+            });
+            
+            // 添加行内操作按钮事件
+            document.querySelectorAll('.add-action').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation(); // 阻止事件冒泡
+                    const studentId = this.getAttribute('data-id');
+                    showScoreModal(studentId, true);
+                });
+            });
+            
+            document.querySelectorAll('.subtract-action').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation(); // 阻止事件冒泡
+                    const studentId = this.getAttribute('data-id');
+                    showScoreModal(studentId, false);
+                });
+            });
+        }
+        
+        // 更新学生字段
+        function updateStudentField(studentId, field, value) {
+            const studentIndex = students.findIndex(s => s.id === studentId);
+            if (studentIndex !== -1) {
+                students[studentIndex][field] = value;
+                saveData();
+                renderStudentTable();
+            }
+        }
+        
+        // 显示分数调整模态框
+        function showScoreModal(studentId, isAdd) {
+            currentStudentId = studentId;
+            isAddingScore = isAdd;
+            
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+            
+            const modal = document.getElementById('scoreModal');
+            const modalTitle = document.getElementById('scoreModalTitle');
+            const modalBody = document.getElementById('scoreModalBody');
+            
+            modalTitle.textContent = isAdd ? `为 ${student.name} 加分` : `为 ${student.name} 扣分`;
+            
+            // 设置选项
+            const addOptions = [30, 20, 10, 5];
+            const subtractOptions = [40, 30, 20, 10, 5];
+            const options = isAdd ? addOptions : subtractOptions;
+            
+            let optionsHTML = '';
+            options.forEach(option => {
+                optionsHTML += `
+                    <div class="score-option ${isAdd ? 'positive-option' : 'negative-option'}" data-score="${option}">
+                        ${isAdd ? '+' : '-'}${option}分
+                    </div>
+                `;
+            });
+            
+            modalBody.innerHTML = `
+                <p>当前分数: <strong>${student.score}</strong></p>
+                <p>请选择调整分值：</p>
+                <div class="score-options">
+                    ${optionsHTML}
+                </div>
+                <div class="form-group">
+                    <label for="scoreReason">原因说明</label>
+                    <textarea id="scoreReason" class="form-control" rows="3" placeholder="请输入调整分数的原因..."></textarea>
+                </div>
+            `;
+            
+            // 添加选项点击事件
+            document.querySelectorAll('.score-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    // 移除其他选项的选中状态
+                    document.querySelectorAll('.score-option').forEach(opt => {
+                        opt.style.backgroundColor = '';
+                        opt.style.color = '';
+                    });
+                    
+                    // 设置当前选项为选中状态
+                    this.style.backgroundColor = isAdd ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)';
+                    this.style.color = isAdd ? '#2e7d32' : '#c62828';
+                    
+                    // 保存选中的分数
+                    this.dataset.selected = 'true';
+                });
+            });
+            
+            modal.style.display = 'flex';
+        }
+        
+        // 确认分数调整
+        function confirmScoreChange() {
+            const selectedOption = document.querySelector('.score-option[data-selected="true"]');
+            const reason = document.getElementById('scoreReason').value.trim();
+            
+            if (!selectedOption) {
+                alert('请选择一个分值');
+                return;
+            }
+            
+            if (!reason) {
+                alert('请输入原因说明');
+                return;
+            }
+            
+            const score = parseInt(selectedOption.getAttribute('data-score'));
+            const studentIndex = students.findIndex(s => s.id === currentStudentId);
+            
+            if (studentIndex !== -1) {
+                // 更新学生分数
+                if (isAddingScore) {
+                    students[studentIndex].score += score;
+                } else {
+                    students[studentIndex].score -= score;
+                }
+                
+                // 添加历史记录
+                const student = students[studentIndex];
+                const historyRecord = {
+                    id: Date.now().toString(),
+                    studentId: currentStudentId,
+                    studentName: student.name,
+                    type: isAddingScore ? 'positive' : 'negative',
+                    score: score,
+                    reason: reason,
+                    timestamp: new Date().toISOString()
+                };
+                
+                history.push(historyRecord);
+                
+                // 保存数据
+                saveData();
+                
+                // 更新UI
+                renderStudentTable();
+                renderHistoryTable();
+                updateStats();
+                
+                // 关闭模态框
+                document.getElementById('scoreModal').style.display = 'none';
+                
+                // 显示成功消息
+                alert(`${student.name} ${isAddingScore ? '加分' : '扣分'}成功！`);
+            }
+        }
+        
+        // 显示添加学生模态框
+        function showAddStudentModal() {
+            if (!currentClass) {
+                alert('请先选择班级');
+                return;
+            }
+            
+            // 显示模态框
+            document.getElementById('addStudentModal').style.display = 'flex';
+            
+            // 自动聚焦到姓名输入框
+            setTimeout(() => {
+                document.getElementById('newStudentName').focus();
+            }, 100);
+        }
+        
+        // 重置添加学生表单
+        function resetAddStudentForm() {
+            document.getElementById('newStudentName').value = '';
+            document.getElementById('newStudentGroup').value = '';
+            document.getElementById('excelFileInput').value = '';
+            document.getElementById('fileName').textContent = '未选择文件';
+            document.getElementById('importPreview').style.display = 'none';
+            importData = [];
+        }
+        
+        // 确认添加学生
+        function confirmAddStudent() {
+            const name = document.getElementById('newStudentName').value.trim();
+            const group = document.getElementById('newStudentGroup').value.trim();
+            
+            if (!name) {
+                alert('请输入学生姓名');
+                document.getElementById('newStudentName').focus();
+                return;
+            }
+            
+            if (!group) {
+                alert('请输入小组名称');
+                document.getElementById('newStudentGroup').focus();
+                return;
+            }
+            
+            const newStudent = {
+                id: Date.now().toString(),
+                classId: currentClass,
+                name: name,
+                group: group,
+                score: 0
+            };
+            
+            students.push(newStudent);
+            saveData();
+            
+            // 清空表单
+            resetAddStudentForm();
+            
+            // 关闭模态框
+            document.getElementById('addStudentModal').style.display = 'none';
+            
+            // 更新UI
+            renderStudentTable();
+            
+            // 显示成功消息
+            alert(`学生 ${name} 添加成功！`);
+        }
+        
+        // 处理Excel文件选择
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // 检查文件类型
+            if (!file.name.match(/\.(xlsx|xls)$/)) {
+                alert('请选择Excel文件（.xlsx或.xls格式）');
+                return;
+            }
+            
+            // 显示文件名
+            document.getElementById('fileName').textContent = file.name;
+            
+            // 读取Excel文件
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = e.target.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    
+                    // 获取第一个工作表
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // 将工作表转换为JSON
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    // 处理数据
+                    importData = [];
+                    let previewHTML = '';
+                    
+                    // 从第二行开始读取数据（跳过标题行）
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        if (row.length >= 2) {
+                            const name = row[0] ? row[0].toString().trim() : '';
+                            const group = row[1] ? row[1].toString().trim() : '';
+                            const score = row[2] ? parseInt(row[2]) || 0 : 0;
+                            
+                            if (name && group) {
+                                importData.push({
+                                    name: name,
+                                    group: group,
+                                    score: score
+                                });
+                                
+                                previewHTML += `
+                                    <tr>
+                                        <td>${name}</td>
+                                        <td>${group}</td>
+                                        <td>${score}</td>
+                                    </tr>
+                                `;
+                            }
+                        }
+                    }
+                    
+                    if (importData.length === 0) {
+                        alert('Excel文件中没有找到有效的学生数据。请确保文件格式正确，包含姓名和小组列。');
+                        return;
+                    }
+                    
+                    // 显示预览
+                    document.getElementById('previewTableBody').innerHTML = previewHTML;
+                    document.getElementById('importPreview').style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('读取Excel文件失败:', error);
+                    alert('读取Excel文件失败，请检查文件格式是否正确。');
+                }
+            };
+            
+            reader.onerror = function() {
+                alert('读取文件失败，请重试。');
+            };
+            
+            reader.readAsBinaryString(file);
+        }
+        
+        // 确认导入学生
+        function confirmImportStudents() {
+            if (importData.length === 0) {
+                alert('请先选择并读取Excel文件');
+                return;
+            }
+            
+            if (!confirm(`确定要导入 ${importData.length} 名学生吗？`)) {
+                return;
+            }
+            
+            let importedCount = 0;
+            let skippedCount = 0;
+            
+            importData.forEach(studentData => {
+                // 检查是否已存在同名同组的学生
+                const existingStudent = students.find(s => 
+                    s.classId === currentClass && 
+                    s.name === studentData.name && 
+                    s.group === studentData.group
+                );
+                
+                if (!existingStudent) {
+                    const newStudent = {
+                        id: Date.now().toString() + '-' + importedCount,
+                        classId: currentClass,
+                        name: studentData.name,
+                        group: studentData.group,
+                        score: studentData.score || 0
+                    };
+                    
+                    students.push(newStudent);
+                    importedCount++;
+                } else {
+                    skippedCount++;
+                }
+            });
+            
+            saveData();
+            
+            // 清空表单
+            resetAddStudentForm();
+            
+            // 关闭模态框
+            document.getElementById('addStudentModal').style.display = 'none';
+            
+            // 更新UI
+            renderStudentTable();
+            
+            // 显示导入结果
+            let message = `成功导入 ${importedCount} 名学生！`;
+            if (skippedCount > 0) {
+                message += ` 跳过了 ${skippedCount} 名已存在的学生。`;
+            }
+            alert(message);
+        }
+        
+        // 下载Excel模板
+        function downloadTemplate(e) {
+            e.preventDefault();
+            
+            // 创建示例数据
+            const templateData = [
+                ['姓名', '小组', '初始积分'],
+                ['张三', '第一组', 100],
+                ['李四', '第一组', 90],
+                ['王五', '第二组', 85],
+                ['赵六', '第二组', 95],
+                ['钱七', '第三组', 80]
+            ];
+            
+            // 创建工作簿和工作表
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(templateData);
+            
+            // 设置列宽
+            const wscols = [
+                { wch: 15 }, // 姓名列宽
+                { wch: 10 }, // 小组列宽
+                { wch: 10 }  // 初始积分列宽
+            ];
+            ws['!cols'] = wscols;
+            
+            // 将工作表添加到工作簿
+            XLSX.utils.book_append_sheet(wb, ws, '学生模板');
+            
+            // 生成Excel文件并下载
+            XLSX.writeFile(wb, '学生导入模板.xlsx');
+        }
+        
+        // 删除学生
+        function deleteStudent(studentId) {
+            if (!confirm('确定要删除这个学生吗？该学生的所有历史记录也将被删除。')) {
+                return;
+            }
+            
+            // 删除学生
+            students = students.filter(s => s.id !== studentId);
+            
+            // 删除该学生的历史记录
+            history = history.filter(h => h.studentId !== studentId);
+            
+            saveData();
+            renderStudentTable();
+            renderHistoryTable();
+            updateStats();
+        }
+        
+        // 刷新排名
+        function refreshRanking() {
+            renderStudentTable();
+        }
+        
+        // 筛选学生
+        function filterStudents() {
+            const searchTerm = document.getElementById('searchStudent').value.toLowerCase().trim();
+            const rows = document.querySelectorAll('#studentTable tr');
+            
+            rows.forEach(row => {
+                const nameCell = row.querySelector('td:nth-child(2)');
+                const groupCell = row.querySelector('td:nth-child(3)');
+                
+                if (nameCell && groupCell) {
+                    const name = nameCell.textContent.toLowerCase();
+                    const group = groupCell.textContent.toLowerCase();
+                    
+                    if (name.includes(searchTerm) || group.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
+        // 显示批量操作模态框
+        function showBatchModal() {
+            if (!currentClass) {
+                alert('请先选择班级');
+                return;
+            }
+            
+            const modal = document.getElementById('batchModal');
+            const studentList = document.getElementById('batchStudentList');
+            
+            // 获取当前班级的学生
+            const classStudents = students.filter(s => s.classId === currentClass);
+            
+            let studentListHTML = '';
+            classStudents.forEach(student => {
+                studentListHTML += `
+                    <div class="batch-student">
+                        <input type="checkbox" id="student-${student.id}" value="${student.id}" class="batch-student-checkbox">
+                        <label for="student-${student.id}">${student.name} (${student.group}) - 当前分数: ${student.score}</label>
+                    </div>
+                `;
+            });
+            
+            studentList.innerHTML = studentListHTML;
+            
+            // 添加复选框事件
+            document.querySelectorAll('.batch-student-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const studentId = this.value;
+                    
+                    if (this.checked) {
+                        if (!selectedStudents.includes(studentId)) {
+                            selectedStudents.push(studentId);
+                        }
+                    } else {
+                        selectedStudents = selectedStudents.filter(id => id !== studentId);
+                    }
+                    
+                    // 更新全选复选框状态
+                    updateSelectAllCheckbox();
+                });
+            });
+            
+            // 添加全选复选框事件
+            document.getElementById('selectAllStudents').addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.batch-student-checkbox');
+                if (this.checked) {
+                    // 全选
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = true;
+                        const studentId = checkbox.value;
+                        if (!selectedStudents.includes(studentId)) {
+                            selectedStudents.push(studentId);
+                        }
+                    });
+                } else {
+                    // 取消全选
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    selectedStudents = [];
+                }
+            });
+            
+            // 清空之前的选择
+            selectedStudents = [];
+            document.getElementById('selectAllStudents').checked = false;
+            
+            modal.style.display = 'flex';
+        }
+        
+        // 更新全选复选框状态
+        function updateSelectAllCheckbox() {
+            const checkboxes = document.querySelectorAll('.batch-student-checkbox');
+            const allChecked = checkboxes.length > 0 && Array.from(checkboxes).every(checkbox => checkbox.checked);
+            document.getElementById('selectAllStudents').checked = allChecked;
+        }
+        
+        // 处理批量操作
+        function handleBatchAction(action) {
+            if (selectedStudents.length === 0) {
+                alert('请先选择学生');
+                return;
+            }
+            
+            if (action === 'delete') {
+                if (!confirm(`确定要删除这 ${selectedStudents.length} 名学生吗？`)) {
+                    return;
+                }
+                
+                // 批量删除学生
+                students = students.filter(s => !selectedStudents.includes(s.id));
+                
+                // 删除这些学生的历史记录
+                history = history.filter(h => !selectedStudents.includes(h.studentId));
+                
+                selectedStudents = [];
+                
+                saveData();
+                renderStudentTable();
+                renderHistoryTable();
+                updateStats();
+                
+                document.getElementById('batchModal').style.display = 'none';
+                alert('批量删除成功！');
+                
+            } else if (action === 'add' || action === 'subtract') {
+                const isAdd = action === 'add';
+                const score = prompt(`请输入${isAdd ? '加分' : '扣分'}分值：`);
+                
+                if (!score || isNaN(score) || parseInt(score) <= 0) {
+                    alert('请输入有效的分值');
+                    return;
+                }
+                
+                const reason = prompt(`请输入${isAdd ? '加分' : '扣分'}原因：`);
+                if (!reason) return;
+                
+                const scoreValue = parseInt(score);
+                
+                // 批量更新学生分数
+                selectedStudents.forEach(studentId => {
+                    const studentIndex = students.findIndex(s => s.id === studentId);
+                    if (studentIndex !== -1) {
+                        if (isAdd) {
+                            students[studentIndex].score += scoreValue;
+                        } else {
+                            students[studentIndex].score -= scoreValue;
+                        }
+                        
+                        // 添加历史记录
+                        const student = students[studentIndex];
+                        const historyRecord = {
+                            id: Date.now().toString() + '-' + studentId,
+                            studentId: studentId,
+                            studentName: student.name,
+                            type: isAdd ? 'positive' : 'negative',
+                            score: scoreValue,
+                            reason: reason,
+                            timestamp: new Date().toISOString()
+                        };
+                        
+                        history.push(historyRecord);
+                    }
+                });
+                
+                selectedStudents = [];
+                
+                saveData();
+                renderStudentTable();
+                renderHistoryTable();
+                updateStats();
+                
+                document.getElementById('batchModal').style.display = 'none';
+                alert(`批量${isAdd ? '加分' : '扣分'}成功！`);
+            }
+        }
+        
+        // 确认批量操作
+        function confirmBatchOperation() {
+            // 这里可以添加额外的确认逻辑
+            document.getElementById('batchModal').style.display = 'none';
+            selectedStudents = [];
+            document.getElementById('selectAllStudents').checked = false;
+        }
+        
+        // 更新日期输入框
+        function updateDateInputs() {
+            const now = new Date();
+            const startDate = new Date();
+            startDate.setDate(now.getDate() - 30); // 默认显示最近30天
+            
+            document.getElementById('startDate').valueAsDate = startDate;
+            document.getElementById('endDate').valueAsDate = now;
+        }
+        
+        // 更新统计
+        function updateStats() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('请选择完整的日期范围');
+                return;
+            }
+            
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999); // 设置到当天结束
+            
+            // 过滤历史记录
+            const filteredHistory = history.filter(record => {
+                const recordDate = new Date(record.timestamp);
+                return recordDate >= start && recordDate <= end;
+            });
+            
+            // 统计小组排名
+            const groupMap = new Map();
+            students.forEach(student => {
+                if (student.classId === currentClass) {
+                    if (!groupMap.has(student.group)) {
+                        groupMap.set(student.group, {
+                            name: student.group,
+                            total: 0,
+                            count: 0
+                        });
+                    }
+                    
+                    const groupData = groupMap.get(student.group);
+                    groupData.total += student.score;
+                    groupData.count += 1;
+                }
+            });
+            
+            // 计算小组平均分
+            const groupArray = Array.from(groupMap.values());
+            groupArray.forEach(group => {
+                group.average = group.total / group.count;
+            });
+            
+            // 按平均分排序
+            groupArray.sort((a, b) => b.average - a.average);
+            const topGroups = groupArray.slice(0, 3);
+            
+            // 统计加分最多的5名学生
+            const positiveMap = new Map();
+            filteredHistory.forEach(record => {
+                if (record.type === 'positive') {
+                    if (!positiveMap.has(record.studentId)) {
+                        positiveMap.set(record.studentId, {
+                            name: record.studentName,
+                            total: 0,
+                            details: []
+                        });
+                    }
+                    
+                    const studentData = positiveMap.get(record.studentId);
+                    studentData.total += record.score;
+                    studentData.details.push(`${record.score}分 (${record.reason})`);
+                }
+            });
+            
+            // 转换为数组并排序
+            const positiveArray = Array.from(positiveMap.values());
+            positiveArray.sort((a, b) => b.total - a.total);
+            const topPositive = positiveArray.slice(0, 5);
+            
+            // 统计扣分超过20分的学生
+            const negativeMap = new Map();
+            filteredHistory.forEach(record => {
+                if (record.type === 'negative') {
+                    if (!negativeMap.has(record.studentId)) {
+                        negativeMap.set(record.studentId, {
+                            name: record.studentName,
+                            total: 0,
+                            details: []
+                        });
+                    }
+                    
+                    const studentData = negativeMap.get(record.studentId);
+                    studentData.total += record.score;
+                    studentData.details.push(`${record.score}分 (${record.reason})`);
+                }
+            });
+            
+            // 过滤扣分超过20分的学生
+            const topNegative = Array.from(negativeMap.values())
+                .filter(student => student.total > 20)
+                .sort((a, b) => b.total - a.total);
+            
+            // 渲染小组排名
+            const groupStats = document.getElementById('groupStats');
+            if (topGroups.length === 0) {
+                groupStats.innerHTML = '<div class="stat-item"><p>暂无小组数据</p></div>';
+            } else {
+                groupStats.innerHTML = '';
+                topGroups.forEach((group, index) => {
+                    const statItem = document.createElement('div');
+                    statItem.className = 'stat-item';
+                    
+                    let trophyIcon = '';
+                    if (index === 0) {
+                        trophyIcon = '<i class="fas fa-trophy trophy trophy-gold"></i>';
+                    } else if (index === 1) {
+                        trophyIcon = '<i class="fas fa-trophy trophy trophy-silver"></i>';
+                    } else if (index === 2) {
+                        trophyIcon = '<i class="fas fa-trophy trophy trophy-bronze"></i>';
+                    }
+                    
+                    statItem.innerHTML = `
+                        <div class="stat-name">${trophyIcon} ${group.name}</div>
+                        <div class="stat-details">平均分: ${group.average.toFixed(1)} (${group.count}人)</div>
+                    `;
+                    groupStats.appendChild(statItem);
+                });
+            }
+            
+            // 渲染加分统计
+            const positiveStats = document.getElementById('positiveStats');
+            if (topPositive.length === 0) {
+                positiveStats.innerHTML = '<div class="stat-item"><p>暂无加分记录</p></div>';
+            } else {
+                positiveStats.innerHTML = '';
+                topPositive.forEach((student, index) => {
+                    const statItem = document.createElement('div');
+                    statItem.className = 'stat-item';
+                    statItem.innerHTML = `
+                        <div class="stat-name">${index + 1}. ${student.name} (总计: +${student.total}分)</div>
+                        <div class="stat-details">${student.details.join('; ')}</div>
+                    `;
+                    positiveStats.appendChild(statItem);
+                });
+            }
+            
+            // 渲染扣分统计
+            const negativeStats = document.getElementById('negativeStats');
+            if (topNegative.length === 0) {
+                negativeStats.innerHTML = '<div class="stat-item"><p>暂无扣分超过20分的学生</p></div>';
+            } else {
+                negativeStats.innerHTML = '';
+                topNegative.forEach((student, index) => {
+                    const statItem = document.createElement('div');
+                    statItem.className = 'stat-item';
+                    statItem.innerHTML = `
+                        <div class="stat-name">${index + 1}. ${student.name} (总计: -${student.total}分)</div>
+                        <div class="stat-details">${student.details.join('; ')}</div>
+                    `;
+                    negativeStats.appendChild(statItem);
+                });
+            }
+        }
+        
+        // 渲染历史记录表格
+        function renderHistoryTable() {
+            const historyTable = document.getElementById('historyTable');
+            historyTable.innerHTML = '';
+            
+            if (history.length === 0) {
+                historyTable.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px;">暂无历史记录</td></tr>';
+                return;
+            }
+            
+            // 按时间倒序排序
+            const sortedHistory = [...history].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            sortedHistory.forEach(record => {
+                const row = document.createElement('tr');
+                row.className = record.type === 'positive' ? 'history-positive' : 'history-negative';
+                
+                const date = new Date(record.timestamp);
+                const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${record.studentName}</td>
+                    <td>${record.type === 'positive' ? '<span style="color: #27ae60;">加分</span>' : '<span style="color: #e74c3c;">扣分</span>'}</td>
+                    <td>${record.type === 'positive' ? '+' : '-'}${record.score}</td>
+                    <td>${record.reason}</td>
+                `;
+                
+                historyTable.appendChild(row);
+            });
+        }
+        
+        // 筛选历史记录
+        function filterHistory() {
+            const filterValue = document.getElementById('historyFilter').value;
+            const rows = document.querySelectorAll('#historyTable tr');
+            
+            rows.forEach(row => {
+                if (row.cells && row.cells.length >= 3) {
+                    const typeCell = row.cells[2];
+                    const typeText = typeCell.textContent;
+                    
+                    if (filterValue === 'all') {
+                        row.style.display = '';
+                    } else if (filterValue === 'positive' && typeText.includes('加分')) {
+                        row.style.display = '';
+                    } else if (filterValue === 'negative' && typeText.includes('扣分')) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
+        // 导出历史记录
+        function exportHistory() {
+            if (history.length === 0) {
+                alert('暂无历史记录可导出');
+                return;
+            }
+            
+            let csvContent = "时间,学生,类型,分值,原因\n";
+            
+            // 按时间倒序排序
+            const sortedHistory = [...history].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            sortedHistory.forEach(record => {
+                const date = new Date(record.timestamp);
+                const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const type = record.type === 'positive' ? '加分' : '扣分';
+                const score = record.type === 'positive' ? '+' + record.score : '-' + record.score;
+                
+                csvContent += `"${formattedDate}","${record.studentName}","${type}","${score}","${record.reason}"\n`;
+            });
+            
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `积分历史记录_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+        }
+        
+        // 撤销操作
+        function undo() {
+            if (undoStack.length === 0) {
+                alert('无法撤销，已到达最初状态');
+                return;
+            }
+            
+            // 当前状态保存到重做栈
+            const currentState = {
+                classes: JSON.parse(JSON.stringify(classes)),
+                students: JSON.parse(JSON.stringify(students)),
+                history: JSON.parse(JSON.stringify(history)),
+                currentClass: currentClass
+            };
+            
+            redoStack.push(currentState);
+            
+            // 恢复上一个状态
+            const previousState = undoStack.pop();
+            classes = previousState.classes;
+            students = previousState.students;
+            history = previousState.history;
+            currentClass = previousState.currentClass;
+            
+            // 更新UI
+            renderClassList();
+            renderStudentTable();
+            renderHistoryTable();
+            updateStats();
+            
+            // 保存数据（但不保存到撤销栈）
+            const data = {
+                classes,
+                students,
+                history,
+                undoStack,
+                redoStack
+            };
+            
+            localStorage.setItem('classPointsData', JSON.stringify(data));
+        }
+        
+        // 重做操作
+        function redo() {
+            if (redoStack.length === 0) {
+                alert('无法重做，已到达最新状态');
+                return;
+            }
+            
+            // 当前状态保存到撤销栈
+            const currentState = {
+                classes: JSON.parse(JSON.stringify(classes)),
+                students: JSON.parse(JSON.stringify(students)),
+                history: JSON.parse(JSON.stringify(history)),
+                currentClass: currentClass
+            };
+            
+            undoStack.push(currentState);
+            
+            // 恢复下一个状态
+            const nextState = redoStack.pop();
+            classes = nextState.classes;
+            students = nextState.students;
+            history = nextState.history;
+            currentClass = nextState.currentClass;
+            
+            // 更新UI
+            renderClassList();
+            renderStudentTable();
+            renderHistoryTable();
+            updateStats();
+            
+            // 保存数据（但不保存到撤销栈）
+            const data = {
+                classes,
+                students,
+                history,
+                undoStack,
+                redoStack
+            };
+            
+            localStorage.setItem('classPointsData', JSON.stringify(data));
+        }
+        
+        // 数据备份
+        function backupData() {
+            const data = {
+                classes,
+                students,
+                history,
+                timestamp: new Date().toISOString()
+            };
+            
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `班级积分备份_${new Date().toLocaleDateString().replace(/\//g, '-')}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            
+            alert('数据备份成功！');
+        }
+        
+        // 恢复数据
+        function restoreData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        
+                        if (!confirm('确定要恢复数据吗？当前数据将被覆盖。')) {
+                            return;
+                        }
+                        
+                        classes = data.classes || [];
+                        students = data.students || [];
+                        history = data.history || [];
+                        
+                        // 设置当前班级为第一个班级
+                        if (classes.length > 0) {
+                            currentClass = classes[0].id;
+                        } else {
+                            currentClass = null;
+                        }
+                        
+                        // 清空撤销和重做栈
+                        undoStack = [];
+                        redoStack = [];
+                        
+                        saveData();
+                        renderClassList();
+                        renderStudentTable();
+                        renderHistoryTable();
+                        updateStats();
+                        
+                        alert('数据恢复成功！');
+                    } catch (error) {
+                        alert('恢复数据失败：文件格式不正确');
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+        
+        // 重置系统
+        function resetSystem() {
+            if (!confirm('确定要重置系统吗？所有数据将被清空，此操作不可撤销。')) {
+                return;
+            }
+            
+            localStorage.removeItem('classPointsData');
+            classes = [];
+            students = [];
+            history = [];
+            undoStack = [];
+            redoStack = [];
+            currentClass = null;
+            selectedStudents = [];
+            
+            renderClassList();
+            renderStudentTable();
+            renderHistoryTable();
+            updateStats();
+            
+            alert('系统已重置');
+        }
+    </script>
+</body>
 </html>
